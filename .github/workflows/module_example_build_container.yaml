@@ -53,7 +53,7 @@ jobs:
           elif [ "$branchname" = "main" ]; then
             echo "CURRENT_ENVIRONMENT=production" >> $GITHUB_OUTPUT
             echo "SHORT_ENV_OUT=PROD" >> $GITHUB_OUTPUT
-            echo "LASTEST_DOCKER_IMAGE=ghcr.io/${{ github.repository }}:latest" >> $GITHUB_OUTPUT
+            echo "LASTEST_DOCKER_IMAGE=ghcr.io/${{ github.repository }}-example:latest" >> $GITHUB_OUTPUT
           else
             branchname='test'
             echo "CURRENT_ENVIRONMENT=testing" >> $GITHUB_OUTPUT
@@ -74,8 +74,8 @@ jobs:
           cache-to: type=gha,mode=max
           tags: |
             ${{ steps.myvars.outputs.LASTEST_DOCKER_IMAGE }}
-            ghcr.io/${{ github.repository }}:${{ steps.myvars.outputs.BRANCH_NAME }}
-            ghcr.io/${{ github.repository }}:${{ steps.myvars.outputs.BRANCH_NAME }}-${{ steps.myvars.outputs.GIT_HASH_SHORT }}
+            ghcr.io/${{ github.repository }}-example:${{ steps.myvars.outputs.BRANCH_NAME }}
+            ghcr.io/${{ github.repository }}-example:${{ steps.myvars.outputs.BRANCH_NAME }}-${{ steps.myvars.outputs.GIT_HASH_SHORT }}
 
   scan-vulns-repo:
     name: Scan Vulnerabilities in Repo
@@ -114,7 +114,7 @@ jobs:
         with:
           scan-type: fs
           scanners: vuln,secret,config
-          image-ref: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.CONTAINER_TAG }} 
+          image-ref: ghcr.io/${{ github.repository }}-example:${{ needs.build.outputs.CONTAINER_TAG }} 
           format: template
           template: '@/contrib/junit.tpl'
           output: trivy-results-repo-${{ needs.build.outputs.GIT_HASH_SHORT }}.junit
@@ -152,7 +152,7 @@ jobs:
         with:
           scan-type: image
           scanners: vuln,secret,config
-          image-ref: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.CONTAINER_TAG }} 
+          image-ref: ghcr.io/${{ github.repository }}-example:${{ needs.build.outputs.CONTAINER_TAG }} 
           format: table
         env:
           TRIVY_USERNAME: ${{ github.repository_owner }}
@@ -163,7 +163,7 @@ jobs:
         with:
           scan-type: image
           scanners: vuln,secret,config
-          image-ref: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.CONTAINER_TAG }} 
+          image-ref: ghcr.io/${{ github.repository }}-example:${{ needs.build.outputs.CONTAINER_TAG }} 
           format: template
           template: '@/contrib/html.tpl'
           output: trivy-results-docker-${{ needs.build.outputs.GIT_HASH_SHORT }}.html
@@ -176,7 +176,7 @@ jobs:
         with:
           scan-type: image
           scanners: vuln,secret,config
-          image-ref: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.CONTAINER_TAG }} 
+          image-ref: ghcr.io/${{ github.repository }}-example:${{ needs.build.outputs.CONTAINER_TAG }} 
           format: template
           template: '@/contrib/junit.tpl'
           output: trivy-results-docker-${{ needs.build.outputs.GIT_HASH_SHORT }}.junit
