@@ -8,12 +8,6 @@ on:
     paths:
       - 'modules/example/**'
       - '.github/workflows/module_example_build_container.yaml'
-    paths-ignore:
-      # - 'README.md'
-      #- 'Dockerfile*'
-      - '.env*'
-      - '.gitignore'
-      - '.github/**'
 
 defaults:
   run:
