@@ -11,7 +11,10 @@ import Logger from "./services/Logger.service";
 import AddressResolver from "./resolvers/Address.resolver";
 
 async function main() {
-  mongoose.connect("mongodb://127.0.0.1:27017/test");
+  // Initialize DB
+  await mongoose.connect("mongodb://127.0.0.1:27017/test");
+
+  // Setup Graphql
   const schema = await buildSchema({
     resolvers: [AddressResolver],
     emitSchemaFile: true,
@@ -35,4 +38,4 @@ async function main() {
   apolloLogger.log(`Started on port ${port} with url ${url}`);
 }
 
-main();
+main().then().catch();
