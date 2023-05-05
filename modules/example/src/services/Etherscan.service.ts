@@ -1,11 +1,11 @@
 import { setTimeout } from "timers/promises";
 import { injectable } from "tsyringe";
-import { Networks, NetworksEnum } from "../types/Networks";
+import { NetworksEnum } from "../types/Networks";
 import Logger from "./Logger.service";
 
 export enum EtherscanResponseStatus {
-  NOTOK,
-  OK,
+  NOTOK = "0",
+  OK = "1",
 }
 
 export type EtherscanResponse<T> =
