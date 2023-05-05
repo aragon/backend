@@ -93,7 +93,7 @@ jobs:
           cache: 'yarn'
       
       - name: Install deps before scannng with Trivy
-        run: npm install
+        run: yarn install --pure-lockfile
 
       - name: Scan in Repo (html)
         uses: aquasecurity/trivy-action@master
