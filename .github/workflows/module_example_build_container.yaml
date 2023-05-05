@@ -71,8 +71,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          file: modules/example/Dockerfile
-          context: .
+          file: ./modules/example/Dockerfile
+          context: ./modules/example
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
