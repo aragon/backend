@@ -1,4 +1,4 @@
-name: Module Example Release
+name: Release
 
 on:
   workflow_dispatch:
@@ -39,9 +39,9 @@ jobs:
           RELEASE_RUN_TYPE=${{ github.event.inputs.type-of-release-run }}
           echo "RELEASE_RUN_TYPE: $RELEASE_RUN_TYPE"
           if [ "$RELEASE_RUN_TYPE" == "regular-release" ]; then
-            npx multi-semantic-release
+            yarn multi-semantic-release
           else
-            npx multi-semantic-release --dry-run
+            yarn multi-semantic-release --dry-run
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
