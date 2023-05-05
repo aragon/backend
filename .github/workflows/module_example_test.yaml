@@ -1,0 +1,32 @@
+name: Module Example Test
+on:
+  push:
+    branches-ignore:
+      - "main"
+    paths:
+      - "modules/example/"
+      - ".github/workflows/module_example_test.yaml"
+
+defaults:
+  run:
+    working-directory: modules/example
+
+jobs:
+  test:
+    name: Test Module Example
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --pure-lockfile
+
+      - name: Run tests
+        run: yarn test

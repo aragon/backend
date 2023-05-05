@@ -1,0 +1,230 @@
+name: Build Container
+on:
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+      - 'DOPS-*'
+    paths-ignore:
+      # - 'README.md'
+      #- 'Dockerfile*'
+      - '.env*'
+      - '.gitignore'
+      - '.github/**'
+
+defaults:
+  run:
+    working-directory: modules/example
+
+jobs:
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+    outputs:
+      BRANCH_NAME: ${{ steps.myvars.outputs.BRANCH_NAME }}
+      GIT_HASH_SHORT: ${{ steps.myvars.outputs.GIT_HASH_SHORT }}
+      DATE_IN_SECS: ${{ steps.myvars.outputs.DATE_IN_SECS }}
+      CONTAINER_TAG: ${{ steps.myvars.outputs.CONTAINER_TAG }}
+      LASTEST_DOCKER_IMAGE: ${{ steps.myvars.outputs.LASTEST_DOCKER_IMAGE }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # - name: Setup NodeJS 
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: 18
+      #     cache: 'yarn'
+      
+      # - name: Install deps
+      #   run: yarn install
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set myvars
+        id: myvars
+        run: |
+          branchname=$(echo ${GITHUB_REF#refs/heads/} | tr '/' '-' )
+          dateinsecs=$(date +%s)
+          githashshort=$(git rev-parse --short HEAD)
+          echo "GIT_HASH_SHORT=$githashshort" >> $GITHUB_OUTPUT
+          echo "DATE_IN_SECS=$(date +%s)" >> $GITHUB_OUTPUT
+          if [ "$branchname" = "develop" ]; then
+            echo "CURRENT_ENVIRONMENT=development" >> $GITHUB_OUTPUT
+            echo "SHORT_ENV_OUT=DEV" >> $GITHUB_OUTPUT
+            echo "LASTEST_DOCKER_IMAGE=" >> $GITHUB_OUTPUT
+          elif [ "$branchname" = "main" ]; then
+            echo "CURRENT_ENVIRONMENT=production" >> $GITHUB_OUTPUT
+            echo "SHORT_ENV_OUT=PROD" >> $GITHUB_OUTPUT
+            echo "LASTEST_DOCKER_IMAGE=ghcr.io/${{ github.repository }}:latest" >> $GITHUB_OUTPUT
+          else
+            branchname='test'
+            echo "CURRENT_ENVIRONMENT=testing" >> $GITHUB_OUTPUT
+            echo "SHORT_ENV_OUT=TEST" >> $GITHUB_OUTPUT
+            echo "LASTEST_DOCKER_IMAGE=" >> $GITHUB_OUTPUT
+          fi
+          echo "BRANCH_NAME=$branchname" >> $GITHUB_OUTPUT
+          containertag="$branchname-$githashshort"
+          echo "CONTAINER_TAG=$containertag" >> $GITHUB_OUTPUT
+
+      - name: Build and push container ( ${{ steps.myvars.outputs.SHORT_ENV_OUT }} )
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ steps.myvars.outputs.LASTEST_DOCKER_IMAGE }}
+            ghcr.io/${{ github.repository }}:${{ steps.myvars.outputs.BRANCH_NAME }}
+            ghcr.io/${{ github.repository }}:${{ steps.myvars.outputs.BRANCH_NAME }}-${{ steps.myvars.outputs.GIT_HASH_SHORT }}
+
+  scan-vulns-repo:
+    name: Scan Vulnerabilities in Repo
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup NodeJS before scanning with Trivy
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+      
+      - name: Install deps before scannng with Trivy
+        run: npm install
+
+      - name: Scan in Repo (html)
+        uses: aquasecurity/trivy-action@master
+        if: success() || failure()
+        with:
+          scan-type: fs
+          scanners: vuln,secret,config
+          scan-ref: .
+          format: template
+          template: '@/contrib/html.tpl'
+          output: trivy-results-repo-${{ needs.build.outputs.GIT_HASH_SHORT }}.html
+        env:
+          TRIVY_USERNAME: ${{ github.repository_owner }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan in Repo (junit)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scanners: vuln,secret,config
+          image-ref: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.CONTAINER_TAG }} 
+          format: template
+          template: '@/contrib/junit.tpl'
+          output: trivy-results-repo-${{ needs.build.outputs.GIT_HASH_SHORT }}.junit
+
+      - name: Publish Repo Scan Results as Artifact
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: trivy-results-repo-${{ needs.build.outputs.DATE_IN_SECS }}.zip
+          path: trivy-results-repo-${{ needs.build.outputs.GIT_HASH_SHORT }}.*
+
+      - name: Load Repo Scan Results to Github (junit)
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        id: trivy-results-junit
+        if: always()
+        with:
+          files: trivy-results-repo-${{ needs.build.outputs.GIT_HASH_SHORT }}.junit
+          check_name: "Vulns in Repo"
+          comment_mode: always 
+          job_summary: true 
+          compare_to_earlier_commit: true
+          report_individual_runs: true
+          report_suite_logs: any
+
+  scan-vulns-docker:
+    name: Scan Vulnerabilities in Docker
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      ## Generate multiple repos is not support as actions yet, only in cli:
+      ## https://github.com/aquasecurity/trivy/issues/3243
+      - name: Vuln scan in Docker (table)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image
+          scanners: vuln,secret,config
+          image-ref: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.CONTAINER_TAG }} 
+          format: table
+        env:
+          TRIVY_USERNAME: ${{ github.repository_owner }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Vuln scan in Docker (html)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image
+          scanners: vuln,secret,config
+          image-ref: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.CONTAINER_TAG }} 
+          format: template
+          template: '@/contrib/html.tpl'
+          output: trivy-results-docker-${{ needs.build.outputs.GIT_HASH_SHORT }}.html
+        env:
+          TRIVY_USERNAME: ${{ github.repository_owner }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Vulns scan in Docker (junit)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: image
+          scanners: vuln,secret,config
+          image-ref: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.CONTAINER_TAG }} 
+          format: template
+          template: '@/contrib/junit.tpl'
+          output: trivy-results-docker-${{ needs.build.outputs.GIT_HASH_SHORT }}.junit
+        env:
+          TRIVY_USERNAME: ${{ github.repository_owner }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Docker Scan Results as Artifact
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: trivy-results-docker-${{ needs.build.outputs.DATE_IN_SECS }}.zip
+          path: trivy-results-docker-${{ needs.build.outputs.GIT_HASH_SHORT }}.*
+
+      - name: Load Docker Scan Results to Github (junit)
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        id: trivy-results-junit
+        if: always()
+        with:
+          files: trivy-results-docker-${{ needs.build.outputs.GIT_HASH_SHORT }}.junit
+          check_name: "Vulns in Docker"
+          #comment_mode: off            ## off: to not create pull request comments
+          comment_mode: always          ## always: comments in commit and pr
+          job_summary: true             ## results are published as part of the job summary page
+          compare_to_earlier_commit: true   ## compare across commits
+          #ignore_runs: true             ## true: don't collect test run info from the test result files
+          report_individual_runs: true  ## true: reports all individual failures
+          report_suite_logs: any        ## any: report test suite logs for info and error
+          #check_run_annotations: "all tests, skipped tests"
+
+      ## Error: Advanced Security must be enabled for this repository to use code scanning.
+      ## Info: https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/uploading-a-sarif-file-to-github
+      ## This repo is private and CodeQL features can not be enabled and used, so the next step will not work.
+      ## Question: https://github.com/github/codeql-action/issues/943
+      - name: Load Docker Scan Results to GitHub (sarif)
+        uses: github/codeql-action/upload-sarif@v2
+        #if: always()
+        if: false
+        with:
+          sarif_file: trivy-results-docker-${{ needs.build.outputs.GIT_HASH_SHORT }}.sarif
+        
