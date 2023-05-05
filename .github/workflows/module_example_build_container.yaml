@@ -1,10 +1,13 @@
-name: Build Container
+name: Module Example Build Container
 on:
   push:
     branches:
       - 'main'
       - 'develop'
       - 'DOPS-*'
+    paths:
+      - 'modules/example/**'
+      - '.github/workflows/module_example_build_container.yaml'
     paths-ignore:
       # - 'README.md'
       #- 'Dockerfile*'
