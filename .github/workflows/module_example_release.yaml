@@ -1,4 +1,4 @@
-name: 01 Simple Release
+name: Module Example Release
 
 on:
   workflow_dispatch:
