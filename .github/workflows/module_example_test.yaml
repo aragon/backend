@@ -4,7 +4,8 @@ on:
     branches-ignore:
       - "main"
     paths:
-      - "modules/example/"
+      - "./modules/example/*"
+      - "./modules/example/**/*"
       - ".github/workflows/module_example_test.yaml"
 
 defaults:
