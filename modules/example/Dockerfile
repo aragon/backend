@@ -1,4 +1,4 @@
-FROM node:lts-alpine
+FROM node:18-alpine
 
 # Create non-root user and use it as the default user
 RUN addgroup -S app && adduser -S app -G app -s /sbin/nologin && mkdir -p /app && chown -R app:app /app
@@ -13,7 +13,7 @@ COPY ./tsconfig.json ./tsconfig.json
 COPY ./tsconfig.build.json ./tsconfig.build.json
 
 # Build the project
-RUN yarn install --frozen-lockfile --prod
+RUN yarn install --pure-lockfile --prod
 RUN yarn build
 
 CMD [ "yarn", "start"]
