@@ -7,14 +7,13 @@ on:
       - "modules/example/"
       - ".github/workflows/module_example_test.yaml"
 
-defaults:
-  run:
-    working-directory: ./modules/example
-
 jobs:
   test:
     name: Test Module Example
     runs-on: ubuntu-latest
+    defaults:
+      run:
+          working-directory: ./modules/example
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
